@@ -7,8 +7,8 @@
 // WIFI
 // ======================================================
 
-const char* ssid = ".TigoWiFi-429459600/0_EXT";
-const char* password = "WiFi-96821666";
+const char* ssid = "ESP8266_Server";
+const char* password = "12345678";
 
 // ======================================================
 // ESP32-CAM AI THINKER
