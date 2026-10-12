@@ -1,0 +1,146 @@
+/*
+ * ESP8266 - Punto de acceso local para proyecto de gafas inteligentes
+ *
+ * Funciones actuales:
+ * 1. Crea una red Wi-Fi propia (SoftAP).
+ * 2. Usa IP fija 192.168.4.1.
+ * 3. Abre un servidor TCP en el puerto 80.
+ * 4. Permite que:
+ *      - ESP32-CAM se conecte a esta red.
+ *      - PC / iPhone se conecten a esta red.
+ *      - El Dataset Collector del ESP32-CAM sea accesible por IP.
+ * 5. Queda preparado para recibir en el futuro:
+ *      ON, OFF, TAZA, BOTELLA, PERSONA, SILLA
+ *
+ * IMPORTANTE:
+ * Este ESP8266 NO aloja el Dataset Collector.
+ * El HTML y el WebServer del Dataset Collector permanecen en el ESP32-CAM.
+ */
+
+#include <ESP8266WiFi.h>
+
+const char* AP_SSID     = "ESP8266_Server";
+const char* AP_PASSWORD = "12345678";
+
+IPAddress local_IP(192, 168, 4, 1);
+IPAddress gateway(192, 168, 4, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+WiFiServer server(80);
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println();
+  Serial.println("======================================");
+  Serial.println(" ESP8266 - GAFAS INTELIGENTES");
+  Serial.println(" SoftAP + Servidor TCP");
+  Serial.println("======================================");
+
+  WiFi.mode(WIFI_AP);
+
+  if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
+    Serial.println("ERROR: No se pudo configurar la IP del SoftAP");
+  } else {
+    Serial.println("IP del SoftAP configurada correctamente");
+  }
+
+  bool apOK = WiFi.softAP(AP_SSID, AP_PASSWORD);
+
+  if (!apOK) {
+    Serial.println("ERROR: No se pudo crear la red Wi-Fi");
+    while (true) {
+      delay(1000);
+    }
+  }
+
+  delay(500);
+
+  server.begin();
+  server.setNoDelay(true);
+
+  Serial.println();
+  Serial.println("RED WI-FI ACTIVA");
+  Serial.print("SSID: ");
+  Serial.println(AP_SSID);
+
+  Serial.print("Password: ");
+  Serial.println(AP_PASSWORD);
+
+  Serial.print("IP ESP8266: ");
+  Serial.println(WiFi.softAPIP());
+
+  Serial.println("Servidor TCP: puerto 80");
+  Serial.println();
+  Serial.println("Conecta el ESP32-CAM y tu PC/iPhone a esta red.");
+  Serial.println("======================================");
+}
+
+void loop() {
+  static int lastStations = -1;
+  int stations = WiFi.softAPgetStationNum();
+
+  if (stations != lastStations) {
+    Serial.print("Dispositivos conectados: ");
+    Serial.println(stations);
+    lastStations = stations;
+  }
+
+  WiFiClient client = server.available();
+
+  if (client) {
+    Serial.println();
+    Serial.println("Cliente TCP conectado");
+
+    unsigned long timeout = millis();
+
+    while (client.connected() && millis() - timeout < 2000) {
+
+      if (client.available()) {
+
+        String comando = client.readStringUntil('\n');
+        comando.trim();
+        comando.toUpperCase();
+
+        if (comando.length() > 0) {
+          Serial.print("Comando recibido: ");
+          Serial.println(comando);
+
+          if (comando == "ON") {
+            Serial.println("Accion futura: ACTIVAR sistema");
+          }
+          else if (comando == "OFF") {
+            Serial.println("Accion futura: DESACTIVAR sistema");
+          }
+          else if (comando == "TAZA") {
+            Serial.println("Accion futura: reproducir audio TAZA");
+          }
+          else if (comando == "BOTELLA") {
+            Serial.println("Accion futura: reproducir audio BOTELLA");
+          }
+          else if (comando == "PERSONA") {
+            Serial.println("Accion futura: reproducir audio PERSONA");
+          }
+          else if (comando == "SILLA") {
+            Serial.println("Accion futura: reproducir audio SILLA");
+          }
+          else {
+            Serial.println("Comando desconocido");
+          }
+
+          client.println("OK");
+        }
+
+        break;
+      }
+
+      delay(1);
+    }
+
+    client.stop();
+    Serial.println("Cliente TCP desconectado");
+  }
+
+  delay(10);
+}
